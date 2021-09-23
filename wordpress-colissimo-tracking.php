@@ -17,23 +17,27 @@ if ( ! defined( 'WPINC' ) ) {
 	die;
 }
 
-add_action( 'updated_post_meta', 'updateMeta', 10, 4);
+add_action( 'woocommerce_rest_insert_shop_order_object', 'wct_updateOrder', 10, 2);
 
-function updateMeta($meta_id, $post_id, $meta_key, $_meta_value) {
-    if($meta_key !== 'lpc_outward_parcel_number') {
+function wct_updateOrder($meta_id, $post_id) {
+    if(!$post_id instanceof WP_REST_Request || !$meta_id instanceof Automattic\WooCommerce\Admin\Overrides\Order) {
         return;
     }
-
     if(!is_plugin_active( 'colissimo-shipping-methods-for-woocommerce/index.php' )) {
         return;
     }
-
     if(!file_exists(LPC_INCLUDES.'label/lpc_outward_label_db.php')) {
         return;
     }
-
-    require_once LPC_INCLUDES.'label/lpc_outward_label_db.php';
-
-    $lpc = new LpcOutwardLabelDb();
-    $lpc->insert($post_id, null, $_meta_value);
+    if(count($post_id->get_json_params()) < 1) {
+        return;
+    }
+    $json = $post_id->get_json_params();
+    if(
+        isset($json['meta_data'][0]['value']) && isset($json['meta_data'][0]['key'])
+        && $json['meta_data'][0]['key'] === 'lpc_outward_parcel_number'
+    ) {
+        $lpc = new LpcOutwardLabelDb();
+        $lpc->insert($meta_id->get_id(), null, $json['meta_data'][0]['value']);
+    }
 }
